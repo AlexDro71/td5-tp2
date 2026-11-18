@@ -14,7 +14,6 @@ private:
     double _capacidad_camion;
     const Entrada* _entrada;
     double _objetivo;
-    bool _objetivo_calculado;
     vector<double> _espacio_camiones;
 
 public:

@@ -15,7 +15,7 @@ Solucion::Solucion(const Entrada& e)
 void Solucion::agregar_camion() {
     vector<int> nuevo;
     _camiones.push_back(nuevo);
-    _espacio_camiones.push_back(capacidad_camion);
+    _espacio_camiones.push_back(_capacidad_camion);
     _k++;
 }
 
@@ -31,11 +31,11 @@ void Solucion::funcion_objetivo() {
     for (const auto& camion : _camiones) {
         for (size_t i = 0; i < camion.size(); ++i) {
             for (size_t j = i + 1; j < camion.size(); ++j) {
-                suma_similitudes += entrada->get_similitud(camion[i], camion[j]);
+                suma_similitudes += _entrada->get_similitud(camion[i], camion[j]);
             }
         }
     }
-    _objetivo = alfa * static_cast<double>(K) - beta * suma_similitudes;
+    _objetivo = alfa * static_cast<double>(_k) - beta * suma_similitudes;
 }
 
 int Solucion::get_K() const {

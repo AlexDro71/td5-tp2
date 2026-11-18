@@ -7,8 +7,6 @@
 
 using namespace std;
 
-namespace {
-
 constexpr double TOLERANCIA = 1e-9;
 
 Entrada leer_entrada(const string& ruta) {
@@ -132,8 +130,6 @@ void escribir_solucion(const string& ruta, const Solucion& solucion) {
         throw runtime_error("Ocurrio un error al escribir el archivo de salida.");
     }
 }
-
-} // namespace
 
 int main(int argc, char* argv[]) {
     if (argc != 3) {
