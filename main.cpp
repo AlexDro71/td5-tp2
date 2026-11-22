@@ -45,10 +45,62 @@ Entrada leer_entrada(const string& ruta, double Tmax) {
 // -----------------------------------------------------------------------------
 // Heuristicas constructivas (reemplazar el cuerpo de cada funcion)
 // -----------------------------------------------------------------------------
-void heuristica_1(const Entrada& entrada, Solucion& solucion) {
-    // TODO: implementar la heuristica constructiva 1.
-    (void)entrada;
-    (void)solucion;
+void umbral_similitud(const Entrada& entrada, Solucion& solucion) {
+
+    double umbral = 0.5;
+
+    const vector<pair<double, double>> productos = entrada.get_productos();
+    solucion.agregar_a_camion(0, 0, productos[0].first); //El primer producto si o si va al primer camion
+
+    for (int i = 1; i < entrada.get_n(); ++i) { //Entonces itero desde el segundo
+
+        double peso = productos[i].first;
+        double temperatura = productos[i].second;
+
+        bool agregado = false;
+
+        for (int k = 0; k < solucion.get_K(); ++k) {
+
+            const vector<int>& camion = solucion.get_camiones()[k];
+
+            if (solucion.get_espacio_camiones()[k] < peso) { //Si pesa mas de la capacidad restante no puedo agregar
+                continue;
+            }
+
+                const pair<double, double> rango = solucion.get_rango_temperaturas()[k];
+
+                double nueva_min = min(rango.first, temperatura);
+                double nueva_max = max(rango.second, temperatura);
+
+                if (nueva_max - nueva_min > entrada.get_Tmax()) { //Si hay mucha difernecia de temperatura no puedo agregar
+                    continue;
+                }
+            
+            bool similitud_valida = true;
+
+            for (int j : camion) {
+
+                if (entrada.get_similitud(i, j) < umbral) { //Si la similitud con al menos un producto es menor al umbral no puedo agregar
+                    similitud_valida = false;
+                    break;
+                }
+            }
+
+            if (similitud_valida) {
+                solucion.agregar_a_camion(k, i, peso);
+                agregado = true;
+                break;
+            }
+        }
+
+        if (!agregado) { //Si no se pudo agregar a ningun camion, creo uno nuevo y agrego el producto
+            solucion.agregar_camion();
+
+            int nuevo_camion = solucion.get_K() - 1;
+
+            solucion.agregar_a_camion(nuevo_camion, i, peso);
+        }
+    }
 }
 
 void heuristica_2(const Entrada& entrada, Solucion& solucion) {
@@ -91,8 +143,8 @@ void ejecutar_algoritmo(const string& tipo_algoritmo,
                         Solucion& solucion) {
 
     if (tipo_algoritmo == "heuristica") {
-        if (nombre_algoritmo == "H1") {
-            heuristica_1(entrada, solucion);
+        if (nombre_algoritmo == "US") {
+            umbral_similitud(entrada, solucion);
         } else if (nombre_algoritmo == "H2") {
             heuristica_2(entrada, solucion);
         } else {
