@@ -8,9 +8,10 @@ vector<vector<double>> crear_matriz(int n) {
     return matriz;
 }
 
-Entrada::Entrada(int cantidad_productos, double capacidad_camion)
+Entrada::Entrada(int cantidad_productos, double capacidad_camion, double Tmax)
     : _n(cantidad_productos),
       _capacidad(capacidad_camion),
+      _Tmax(Tmax),
       _productos(),
       _similitudes(crear_matriz(cantidad_productos)) {
     _productos.reserve(static_cast<size_t>(cantidad_productos));
@@ -30,6 +31,10 @@ int Entrada::get_n() const {
 
 double Entrada::get_capacidad() const {
     return _capacidad;
+}
+
+double Entrada::get_Tmax() const {
+    return _Tmax;
 }
 
 const vector<pair<double, double>>& Entrada::get_productos() const {

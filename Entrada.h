@@ -9,17 +9,19 @@ class Entrada {
 private:
     int _n;
     double _capacidad;
+    double _Tmax;
     vector<pair<double, double>> _productos;
     vector<vector<double>> _similitudes;
 
 public:
-    Entrada(int cantidad_productos, double capacidad_camion);
-    
+    Entrada(int cantidad_productos, double capacidad_camion, double Tmax);
+
     void agregar_producto(double peso, double temperatura);
     void agregar_similitud(int i, int j, double valor);
 
     int get_n() const;
     double get_capacidad() const;
+    double get_Tmax() const;
 
     const vector<pair<double, double>>& get_productos() const;
     const vector<vector<double>>& get_similitudes() const;
