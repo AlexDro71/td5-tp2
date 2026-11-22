@@ -119,9 +119,162 @@ void operador_1(const Entrada& entrada, Solucion& solucion) {
 }
 
 void operador_2(const Entrada& entrada, Solucion& solucion) {
-    // TODO: implementar el operador de busqueda local 2.
-    (void)entrada;
-    (void)solucion;
+    // Operador de busqueda local 2: SWAP.
+    // Intercambia un producto de un camion con un producto de otro camion
+    // siempre que el intercambio sea factible (capacidad y Tmax) y aumente
+    // la suma de similitudes. K no cambia: este operador solo reacomoda.
+    //
+    // Para que sea rapido guardo afinidad[x][t] = suma de similitudes del
+    // producto x con todos los productos del camion t. Con eso la ganancia
+    // de un swap se calcula en O(1), sin recorrer los camiones.
+    const double EPS = 1e-9;
+    const int n = entrada.get_n();
+    const vector<pair<double, double>> productos = entrada.get_productos();
+    const double Tmax = entrada.get_Tmax();
+    const vector<vector<double>>& similitudes = entrada.get_similitudes();
+
+    // Trabajo sobre copias locales y al final reconstruyo la Solucion,
+    // porque Solucion no tiene metodos para sacar productos de un camion.
+    vector<vector<int>> camiones = solucion.get_camiones();
+    vector<double> espacio = solucion.get_espacio_camiones();
+    const int K = static_cast<int>(camiones.size());
+
+    vector<vector<double>> afinidad(n, vector<double>(K, 0.0));
+    for (int t = 0; t < K; ++t) {
+        for (int x = 0; x < n; ++x) {
+            for (int k : camiones[t]) {
+                afinidad[x][t] += similitudes[x][k];
+            }
+        }
+    }
+
+    // Por cada camion guardo las dos temperaturas mas bajas y las dos mas altas.
+    // Asi puedo saber el rango que queda al sacar un producto sin recorrer el camion.
+    const double INF = numeric_limits<double>::infinity();
+    struct ResumenTemp {
+        double min1, min2, max1, max2;
+        int id_min, id_max;
+    };
+    vector<ResumenTemp> resumen(K);
+
+    auto recalcular = [&](int t) {
+        ResumenTemp r{INF, INF, -INF, -INF, -1, -1};
+        for (int p : camiones[t]) {
+            const double v = productos[p].second;
+            if (v < r.min1) {
+                r.min2 = r.min1;
+                r.min1 = v;
+                r.id_min = p;
+            } else if (v < r.min2) {
+                r.min2 = v;
+            }
+            if (v > r.max1) {
+                r.max2 = r.max1;
+                r.max1 = v;
+                r.id_max = p;
+            } else if (v > r.max2) {
+                r.max2 = v;
+            }
+        }
+        resumen[t] = r;
+    };
+
+    for (int t = 0; t < K; ++t) {
+        recalcular(t);
+    }
+
+    // Dice si el camion respeta Tmax despues de sacar "quitar" y poner "poner".
+    auto rango_ok = [&](int camion, int quitar, int poner) {
+        const ResumenTemp& r = resumen[camion];
+        double tmin = (quitar == r.id_min) ? r.min2 : r.min1;
+        double tmax = (quitar == r.id_max) ? r.max2 : r.max1;
+        const double v = productos[poner].second;
+        tmin = min(tmin, v);
+        tmax = max(tmax, v);
+        return (tmax - tmin) <= Tmax + EPS;
+    };
+
+    bool hubo_cambios = false;
+    bool mejoro = true;
+
+    while (mejoro) { // repito hasta que ningun swap mejore
+        mejoro = false;
+
+        for (int a = 0; a < K; ++a) {
+            for (int b = a + 1; b < K; ++b) {
+                for (size_t pa = 0; pa < camiones[a].size(); ++pa) {
+                    for (size_t pb = 0; pb < camiones[b].size(); ++pb) {
+
+                        const int i = camiones[a][pa]; // producto que sale del camion a
+                        const int j = camiones[b][pb]; // producto que sale del camion b
+
+                        // 1) Ganancia de similitud: j entra a "a" (y sale i),
+                        //    i entra a "b" (y sale j). Se descuenta la similitud
+                        //    de cada producto consigo mismo y con el que se va.
+                        const double sim_ij = similitudes[i][j];
+                        const double ganancia =
+                            (afinidad[j][a] - sim_ij) - (afinidad[i][a] - similitudes[i][i])
+                          + (afinidad[i][b] - sim_ij) - (afinidad[j][b] - similitudes[j][j]);
+
+                        if (ganancia <= EPS) {
+                            continue;
+                        }
+
+                        // 2) Capacidad: despues del swap ningun camion se pasa.
+                        const double wi = productos[i].first;
+                        const double wj = productos[j].first;
+
+                        if (espacio[a] + wi - wj < -EPS || espacio[b] + wj - wi < -EPS) {
+                            continue;
+                        }
+
+                        // 3) Temperatura: ningun camion supera Tmax.
+                        if (!rango_ok(a, i, j) || !rango_ok(b, j, i)) {
+                            continue;
+                        }
+
+                        // Swap valido y que mejora: lo aplico y actualizo lo guardado.
+                        swap(camiones[a][pa], camiones[b][pb]);
+                        espacio[a] += wi - wj;
+                        espacio[b] += wj - wi;
+
+                        // La matriz es simetrica: uso las filas de i y j (memoria contigua).
+                        const vector<double>& fila_i = similitudes[i];
+                        const vector<double>& fila_j = similitudes[j];
+                        for (int x = 0; x < n; ++x) {
+                            const double delta = fila_j[x] - fila_i[x];
+                            afinidad[x][a] += delta;
+                            afinidad[x][b] -= delta;
+                        }
+
+                        recalcular(a);
+                        recalcular(b);
+
+                        hubo_cambios = true;
+                        mejoro = true;
+                        break; // el producto en la posicion pa cambio: sigo con el siguiente
+                    }
+                }
+            }
+        }
+    }
+
+    if (hubo_cambios) {
+        Solucion nueva(entrada);
+
+        for (int k = 0; k < K; ++k) {
+            if (k > 0) {
+                nueva.agregar_camion();
+            }
+            for (int p : camiones[k]) {
+                nueva.agregar_a_camion(k, p, productos[p].first);
+            }
+        }
+
+        solucion = nueva;
+    }
+
+    solucion.funcion_objetivo();
 }
 
 // -----------------------------------------------------------------------------
