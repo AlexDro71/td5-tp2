@@ -311,7 +311,7 @@ void ejecutar_algoritmo(const string& tipo_algoritmo,
 
     // El operador se aplica despues de generar la solucion, si fue solicitado.
     if (!nombre_operador.empty()) {
-        if (nombre_operador == "relocate") {
+        if (nombre_operador == "RELOCATE") {
             relocate(entrada, solucion);
         } else if (nombre_operador == "SWAP") {
             swapop(entrada, solucion);
@@ -359,14 +359,9 @@ string escapar_csv(const string& valor) {
 }
 
 // Agrega una fila al registro general de experimentos.
-void registrar_experimento(const string& ruta_entrada,
-                           const string& tipo_algoritmo,
-                           const string& nombre_algoritmo,
-                           const string& nombre_operador,
-                           const Entrada& entrada,
-                           const Solucion& solucion,
-                           double tiempo_ms) {
-    const string ruta_csv = "output/resultado.csv";
+void registrar_experimento(const string& ruta_entrada, const string& tipo_algoritmo, const string& nombre_algoritmo,
+                           const string& nombre_operador, const Entrada& entrada, const Solucion& solucion, double tiempo_ms) {
+    const string ruta_csv = "outputs/resultado.csv";
     const bool archivo_nuevo = !fs::exists(ruta_csv) || fs::file_size(ruta_csv) == 0;
 
     ofstream archivo(ruta_csv, ios::app);
@@ -414,9 +409,9 @@ int main(int argc, char* argv[]) {
         for (int i = 1; i < argc; ++i) {
             const string argumento = argv[i];
 
-            if (argumento.rfind("input/", 0) == 0) {
+            if (argumento.rfind("inputs/", 0) == 0) {
                 ruta_entrada = argumento;
-            } else if (argumento.rfind("output/", 0) == 0) {
+            } else if (argumento.rfind("outputs/", 0) == 0) {
                 ruta_salida = argumento;
             } else if (argumento == "--Heuristica" || argumento == "--Metaheuristica") {
                 if (i + 1 >= argc) {
@@ -456,7 +451,7 @@ int main(int argc, char* argv[]) {
         }
 
         if (ruta_entrada.empty() || ruta_salida.empty() || tipo_algoritmo.empty() || nombre_algoritmo.empty() || !tiene_Tmax) {
-            throw runtime_error("Se debe indicar input/archivo, output/archivo, una heuristica o metaheuristica y --T Tmax.");
+            throw runtime_error("Se debe indicar inputs/archivo, outputs/archivo, una heuristica o metaheuristica y --T Tmax.");
         }
 
         Entrada entrada = leer_entrada(ruta_entrada, Tmax);
@@ -473,13 +468,7 @@ int main(int argc, char* argv[]) {
         const double tiempo_ms = chrono::duration<double, milli>(fin - inicio).count();
 
         escribir_solucion(ruta_salida, solucion);
-        registrar_experimento(ruta_entrada,
-                              tipo_algoritmo,
-                              nombre_algoritmo,
-                              nombre_operador,
-                              entrada,
-                              solucion,
-                              tiempo_ms);
+        registrar_experimento(ruta_entrada, tipo_algoritmo, nombre_algoritmo, nombre_operador, entrada, solucion, tiempo_ms);
 
         cout << "Solucion generada correctamente.\n"
              << "K: " << solucion.get_K() << '\n'
@@ -487,7 +476,7 @@ int main(int argc, char* argv[]) {
              << "Tmax: " << entrada.get_Tmax() << '\n'
              << "Tiempo de ejecucion: " << fixed << setprecision(3) << tiempo_ms << " ms\n"
              << "Archivo de salida: " << ruta_salida << '\n'
-             << "Registro experimental: output/resultado.csv\n";
+             << "Registro experimental: outputs/resultado.csv\n";
 
     } catch (const exception& error) {
         cerr << "Error: " << error.what() << '\n';

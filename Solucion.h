@@ -11,7 +11,6 @@ class Solucion {
 private:
     vector<vector<int>> _camiones;
     int _k;
-    double _capacidad_camion;
     const Entrada* _entrada;
     double _objetivo;
     double _suma_similitudes;

@@ -7,7 +7,6 @@ using namespace std;
 Solucion::Solucion(const Entrada& e)
     : _camiones(1),
       _k(1),
-      _capacidad_camion(e.get_capacidad()),
       _entrada(&e),
       _suma_similitudes(0.0),
       _espacio_camiones(1, e.get_capacidad()),
@@ -15,7 +14,7 @@ Solucion::Solucion(const Entrada& e)
 
 void Solucion::agregar_camion() {
     _camiones.emplace_back();
-    _espacio_camiones.push_back(_capacidad_camion);
+    _espacio_camiones.push_back(_entrada->get_capacidad());
     _rango_temperaturas.emplace_back(0.0, 0.0);
     ++_k;
 }
