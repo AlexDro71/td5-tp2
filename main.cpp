@@ -104,9 +104,81 @@ void umbral_similitud(const Entrada& entrada, Solucion& solucion) {
 }
 
 void heuristica_2(const Entrada& entrada, Solucion& solucion) {
-    // TODO: implementar la heuristica constructiva 2.
-    (void)entrada;
-    (void)solucion;
+    const auto& productos = entrada.get_productos();
+
+    vector<int> orden(entrada.get_n()); //creamos un vector con los indices de los productos
+    iota(orden.begin(), orden.end(), 0);
+
+    sort(orden.begin(), orden.end(), [&](int a, int b) { //para optimizar los ordenamos de mayor a menor peso
+        return productos[a].first > productos[b].first;
+    });
+
+    const double eps = 1e-9; //para no equivocarnos en comparacion de decimales
+
+    //Procesamos los productos
+    for(int i : orden){
+        double peso = productos[i].first;
+        double temperatura = productos[i].second;
+
+        if(peso > entrada.get_capacidad() + eps){
+            throw runtime_error("Producto excede capacidad del camion");
+        }
+
+        int mejor_camion = -1; //todavia no encontramos ningun camion valido
+        double menor_espacio = numeric_limits<double>::infinity();
+        double mayor_similitud = -1.0;
+
+        //Buscamos el mejor camion existente
+        for(int k = 0; k < solucion.get_K(); ++k){
+            double libre = solucion.get_espacio_camiones()[k];
+
+            //Verificamos capacidad
+            if(libre + eps < peso){
+                continue; //descartamos camiones invalidos
+            }
+
+            const auto& camion = solucion.get_camiones()[k];
+
+            //Verificamos temperatura 
+            if(!camion.empty()){
+                auto rango = solucion.get_rango_temperaturas()[k];
+
+                double nueva_min = min(rango.first, temperatura);
+                double nueva_max = max(rango.second, temperatura);
+
+                if(nueva_max - nueva_min > entrada.get_Tmax() + eps){
+                    continue;
+                }
+            }
+
+            //Calculamos el espacio que queda y la similitud agregada
+            double espacio_despues = libre - peso;
+            double similitud = 0.0;
+
+            for(int j : camion){
+                similitud += entrada.get_similitud(i, j);
+            }
+
+            //Elegimos al camion que menos espacio le queda, si hay epate elegimos por similitud
+            if (espacio_despues < menor_espacio - eps || (abs(espacio_despues - menor_espacio) <= eps && similitud > mayor_similitud)) {
+                mejor_camion = k;
+                menor_espacio = espacio_despues;
+                mayor_similitud = similitud;
+            }
+        }
+
+        //Si no entra en ningun camion, abrimos uno nuevo
+        if (mejor_camion == -1) {
+            if (!solucion.get_camiones()[0].empty()) {
+                solucion.agregar_camion();
+            }
+
+            mejor_camion = solucion.get_K() - 1;
+        }
+
+        //Agregar el producto al camion elegido
+        solucion.agregar_a_camion(mejor_camion, i, peso);
+    }
 }
 
 // -----------------------------------------------------------------------------
