@@ -346,9 +346,122 @@ void swapop(const Entrada& entrada, Solucion& solucion) { //SWAP intercambia un 
 // Metaheuristica (reemplazar el cuerpo de la funcion)
 // -----------------------------------------------------------------------------
 void metaheuristica_1(const Entrada& entrada, Solucion& solucion) {
-    // TODO: implementar la metaheuristica.
-    (void)entrada;
-    (void)solucion;
+    const double limite_segundos = 10.0;   // tiempo maximo de la metaheuristica
+    const int max_iteraciones = 100000;
+
+    const auto inicio = chrono::steady_clock::now();
+    mt19937 rng(12345);
+
+    const vector<pair<double, double>>& productos = entrada.get_productos();
+    const double Tmax = entrada.get_Tmax();
+
+    // Rango de temperaturas de un camion si en la posicion pos pongo un producto de temperatura nueva_temp.
+    auto temperatura_ok = [&](const Solucion& s, int camion, int pos, double nueva_temp) {
+        double minimo = nueva_temp;
+        double maximo = nueva_temp;
+        const vector<int>& productos_camion = s.get_camiones()[camion];
+        for (int p = 0; p < static_cast<int>(productos_camion.size()); ++p) {
+            if (p != pos) {
+                const double t = productos[productos_camion[p]].second;
+                minimo = min(minimo, t);
+                maximo = max(maximo, t);
+            }
+        }
+        return maximo - minimo <= Tmax;
+    };
+
+    // Busqueda local: repite relocate y swap hasta que ninguno mejore.
+    auto busqueda_local = [&](Solucion& s) {
+        double antes;
+        do {
+            antes = s.get_objetivo();
+            relocate(entrada, s);
+            swapop(entrada, s);
+        } while (s.get_objetivo() < antes - 1e-9);
+    };
+
+    // Perturbacion: movimientos aleatorios que SI respetan capacidad y temperatura.
+    auto perturbar = [&](Solucion& s, int movimientos) {
+        int hechos = 0;
+        int intentos = 0;
+        while (hechos < movimientos && intentos < movimientos * 50) {
+            ++intentos;
+            const int K = s.get_K();
+            if (K < 2) {
+                break;
+            }
+
+            const int a = static_cast<int>(rng() % K);
+            const int b = static_cast<int>(rng() % K);
+            if (a == b) {
+                continue;
+            }
+
+            const vector<vector<int>>& camiones = s.get_camiones();
+            const vector<double>& espacio = s.get_espacio_camiones();
+            const int pos_a = static_cast<int>(rng() % camiones[a].size());
+            const int prod_a = camiones[a][pos_a];
+            const double peso_a = productos[prod_a].first;
+            const double temp_a = productos[prod_a].second;
+
+            if (rng() % 2 == 0) {
+                // Reubicar el producto de a en b
+                if (espacio[b] < peso_a) {
+                    continue;
+                }
+                if (!temperatura_ok(s, b, -1, temp_a)) {
+                    continue;
+                }
+                s.reubicar_producto(a, pos_a, b);
+                ++hechos;
+            } else {
+                // Intercambiar un producto de a con uno de b
+                const int pos_b = static_cast<int>(rng() % camiones[b].size());
+                const int prod_b = camiones[b][pos_b];
+                const double peso_b = productos[prod_b].first;
+                const double temp_b = productos[prod_b].second;
+
+                if (espacio[a] + peso_a - peso_b < 0.0 || espacio[b] + peso_b - peso_a < 0.0) {
+                    continue;
+                }
+                if (!temperatura_ok(s, a, pos_a, temp_b) || !temperatura_ok(s, b, pos_b, temp_a)) {
+                    continue;
+                }
+                s.intercambiar_productos(a, pos_a, b, pos_b);
+                ++hechos;
+            }
+        }
+        s.funcion_objetivo();
+    };
+
+    // 1) Solucion inicial (despues se puede cambiar por heuristica_2)
+    umbral_similitud(entrada, solucion);
+    solucion.funcion_objetivo();
+
+    // 2) Primera busqueda local
+    busqueda_local(solucion);
+
+    // 3) Iterated Local Search: perturbar, mejorar, y quedarme con la nueva solo si no empeora
+    Solucion actual = solucion;
+    const int fuerza = max(2, entrada.get_n() / 100);
+
+    for (int it = 0; it < max_iteraciones; ++it) {
+        const double transcurrido =
+            chrono::duration<double>(chrono::steady_clock::now() - inicio).count();
+        if (transcurrido >= limite_segundos) {
+            break;
+        }
+
+        Solucion candidata = actual;
+        perturbar(candidata, fuerza);
+        busqueda_local(candidata);
+
+        if (candidata.get_objetivo() <= actual.get_objetivo() + 1e-9) {
+            actual = candidata;
+        }
+    }
+
+    solucion = actual;
 }
 
 // -----------------------------------------------------------------------------
