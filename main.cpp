@@ -112,169 +112,162 @@ void heuristica_2(const Entrada& entrada, Solucion& solucion) {
 // -----------------------------------------------------------------------------
 // Operadores de busqueda local (reemplazar el cuerpo de cada funcion)
 // -----------------------------------------------------------------------------
-void operador_1(const Entrada& entrada, Solucion& solucion) {
-    // TODO: implementar el operador de busqueda local 1.
-    (void)entrada;
-    (void)solucion;
-}
+void relocate(const Entrada& entrada, Solucion& solucion) { //relocate reubica un producto de un camion a otro
+    while (true) {
+        const double objetivo_actual = solucion.get_objetivo();
+        double mejor_objetivo = objetivo_actual;
 
-void operador_2(const Entrada& entrada, Solucion& solucion) {
-    // Operador de busqueda local 2: SWAP.
-    // Intercambia un producto de un camion con un producto de otro camion
-    // siempre que el intercambio sea factible (capacidad y Tmax) y aumente
-    // la suma de similitudes. K no cambia: este operador solo reacomoda.
-    //
-    // Para que sea rapido guardo afinidad[x][t] = suma de similitudes del
-    // producto x con todos los productos del camion t. Con eso la ganancia
-    // de un swap se calcula en O(1), sin recorrer los camiones.
-    const double EPS = 1e-9;
-    const int n = entrada.get_n();
-    const vector<pair<double, double>> productos = entrada.get_productos();
-    const double Tmax = entrada.get_Tmax();
-    const vector<vector<double>>& similitudes = entrada.get_similitudes();
+        int mejor_origen = -1;
+        int mejor_posicion = -1;
+        int mejor_destino = -1;
 
-    // Trabajo sobre copias locales y al final reconstruyo la Solucion,
-    // porque Solucion no tiene metodos para sacar productos de un camion.
-    vector<vector<int>> camiones = solucion.get_camiones();
-    vector<double> espacio = solucion.get_espacio_camiones();
-    const int K = static_cast<int>(camiones.size());
+        const vector<vector<int>>& camiones = solucion.get_camiones();
+        const vector<double>& espacio = solucion.get_espacio_camiones();
+        const vector<pair<double, double>>& rangos = solucion.get_rango_temperaturas();
+        const vector<pair<double, double>>& productos = entrada.get_productos();
+        const int cantidad_camiones = solucion.get_K();
 
-    vector<vector<double>> afinidad(n, vector<double>(K, 0.0));
-    for (int t = 0; t < K; ++t) {
-        for (int x = 0; x < n; ++x) {
-            for (int k : camiones[t]) {
-                afinidad[x][t] += similitudes[x][k];
-            }
-        }
-    }
+        for (int origen = 0; origen < cantidad_camiones; ++origen) { //Para cada camion quiero ver
+            const vector<int>& camion_origen = camiones[origen];
 
-    // Por cada camion guardo las dos temperaturas mas bajas y las dos mas altas.
-    // Asi puedo saber el rango que queda al sacar un producto sin recorrer el camion.
-    const double INF = numeric_limits<double>::infinity();
-    struct ResumenTemp {
-        double min1, min2, max1, max2;
-        int id_min, id_max;
-    };
-    vector<ResumenTemp> resumen(K);
+            for (int posicion = 0; posicion < camion_origen.size(); ++posicion) { //como afecta mover cada producto
+                const int indice_producto = camion_origen[posicion];
+                const double peso = productos[indice_producto].first;
+                const double temperatura = productos[indice_producto].second;
 
-    auto recalcular = [&](int t) {
-        ResumenTemp r{INF, INF, -INF, -INF, -1, -1};
-        for (int p : camiones[t]) {
-            const double v = productos[p].second;
-            if (v < r.min1) {
-                r.min2 = r.min1;
-                r.min1 = v;
-                r.id_min = p;
-            } else if (v < r.min2) {
-                r.min2 = v;
-            }
-            if (v > r.max1) {
-                r.max2 = r.max1;
-                r.max1 = v;
-                r.id_max = p;
-            } else if (v > r.max2) {
-                r.max2 = v;
-            }
-        }
-        resumen[t] = r;
-    };
+                for (int destino = 0; destino < cantidad_camiones; ++destino) { //a cada camion disponible
+                    if (destino == origen) { // No tiene sentido realocar al mismo camion.
+                        continue;
+                    }
+                    if (espacio[destino] < peso) { //No se puede realocar a un camion si no entra
+                        continue;
+                    }
+                    const pair<double, double>& rango = rangos[destino];
+                    const double nueva_min = min(rango.first, temperatura);
+                    const double nueva_max = max(rango.second, temperatura);
+                    if (nueva_max - nueva_min > entrada.get_Tmax()) { //No se puede realocar si hay mucha diferencia de temperatura
+                        continue;
+                    }
 
-    for (int t = 0; t < K; ++t) {
-        recalcular(t);
-    }
+                    const double objetivo_candidato = solucion.evaluar_objetivo_reubicacion(origen, posicion, destino); //Evaluar relocacion sin modificar solucion
 
-    // Dice si el camion respeta Tmax despues de sacar "quitar" y poner "poner".
-    auto rango_ok = [&](int camion, int quitar, int poner) {
-        const ResumenTemp& r = resumen[camion];
-        double tmin = (quitar == r.id_min) ? r.min2 : r.min1;
-        double tmax = (quitar == r.id_max) ? r.max2 : r.max1;
-        const double v = productos[poner].second;
-        tmin = min(tmin, v);
-        tmax = max(tmax, v);
-        return (tmax - tmin) <= Tmax + EPS;
-    };
-
-    bool hubo_cambios = false;
-    bool mejoro = true;
-
-    while (mejoro) { // repito hasta que ningun swap mejore
-        mejoro = false;
-
-        for (int a = 0; a < K; ++a) {
-            for (int b = a + 1; b < K; ++b) {
-                for (size_t pa = 0; pa < camiones[a].size(); ++pa) {
-                    for (size_t pb = 0; pb < camiones[b].size(); ++pb) {
-
-                        const int i = camiones[a][pa]; // producto que sale del camion a
-                        const int j = camiones[b][pb]; // producto que sale del camion b
-
-                        // 1) Ganancia de similitud: j entra a "a" (y sale i),
-                        //    i entra a "b" (y sale j). Se descuenta la similitud
-                        //    de cada producto consigo mismo y con el que se va.
-                        const double sim_ij = similitudes[i][j];
-                        const double ganancia =
-                            (afinidad[j][a] - sim_ij) - (afinidad[i][a] - similitudes[i][i])
-                          + (afinidad[i][b] - sim_ij) - (afinidad[j][b] - similitudes[j][j]);
-
-                        if (ganancia <= EPS) {
-                            continue;
-                        }
-
-                        // 2) Capacidad: despues del swap ningun camion se pasa.
-                        const double wi = productos[i].first;
-                        const double wj = productos[j].first;
-
-                        if (espacio[a] + wi - wj < -EPS || espacio[b] + wj - wi < -EPS) {
-                            continue;
-                        }
-
-                        // 3) Temperatura: ningun camion supera Tmax.
-                        if (!rango_ok(a, i, j) || !rango_ok(b, j, i)) {
-                            continue;
-                        }
-
-                        // Swap valido y que mejora: lo aplico y actualizo lo guardado.
-                        swap(camiones[a][pa], camiones[b][pb]);
-                        espacio[a] += wi - wj;
-                        espacio[b] += wj - wi;
-
-                        // La matriz es simetrica: uso las filas de i y j (memoria contigua).
-                        const vector<double>& fila_i = similitudes[i];
-                        const vector<double>& fila_j = similitudes[j];
-                        for (int x = 0; x < n; ++x) {
-                            const double delta = fila_j[x] - fila_i[x];
-                            afinidad[x][a] += delta;
-                            afinidad[x][b] -= delta;
-                        }
-
-                        recalcular(a);
-                        recalcular(b);
-
-                        hubo_cambios = true;
-                        mejoro = true;
-                        break; // el producto en la posicion pa cambio: sigo con el siguiente
+                    if (objetivo_candidato < mejor_objetivo) { //Si el objetivo mejora, guardo los indices del mejor movimiento
+                        mejor_objetivo = objetivo_candidato;
+                        mejor_origen = origen;
+                        mejor_posicion = posicion;
+                        mejor_destino = destino;
                     }
                 }
             }
         }
+
+        if (mejor_origen == -1) { //Si no hay una mejora no hago cambios
+            break;
+        }
+
+        solucion.reubicar_producto(mejor_origen, mejor_posicion, mejor_destino);
+        solucion.funcion_objetivo();
     }
+}
 
-    if (hubo_cambios) {
-        Solucion nueva(entrada);
+void swapop(const Entrada& entrada, Solucion& solucion) { //SWAP intercambia un producto de un camion por otro producto de otro camion
+    while (true) {
+        const double objetivo_actual = solucion.get_objetivo();
+        double mejor_objetivo = objetivo_actual;
 
-        for (int k = 0; k < K; ++k) {
-            if (k > 0) {
-                nueva.agregar_camion();
-            }
-            for (int p : camiones[k]) {
-                nueva.agregar_a_camion(k, p, productos[p].first);
+        int mejor_camion_a = -1;
+        int mejor_posicion_a = -1;
+        int mejor_camion_b = -1;
+        int mejor_posicion_b = -1;
+
+        const vector<vector<int>>& camiones = solucion.get_camiones();
+        const vector<double>& espacio = solucion.get_espacio_camiones();
+        const vector<pair<double, double>>& productos = entrada.get_productos();
+
+        const int cantidad_camiones = solucion.get_K();
+
+        for (int camion_a = 0; camion_a < cantidad_camiones; ++camion_a) {
+            const vector<int>& productos_a = camiones[camion_a];
+
+            for (int camion_b = camion_a + 1; camion_b < cantidad_camiones; ++camion_b) {
+                const vector<int>& productos_b = camiones[camion_b];
+
+                for (int posicion_a = 0; posicion_a < static_cast<int>(productos_a.size()); ++posicion_a) {
+                    const int indice_producto_a = productos_a[posicion_a];
+                    const double peso_a = productos[indice_producto_a].first;
+                    const double temperatura_a = productos[indice_producto_a].second;
+
+                    for (int posicion_b = 0; posicion_b < static_cast<int>(productos_b.size()); ++posicion_b) {
+                        const int indice_producto_b = productos_b[posicion_b];
+                        const double peso_b = productos[indice_producto_b].first;
+                        const double temperatura_b = productos[indice_producto_b].second;
+
+                        // Verifico que ambos camiones respeten la capacidad despues del intercambio.
+                        if (espacio[camion_a] + peso_a - peso_b < 0.0 ||
+                            espacio[camion_b] + peso_b - peso_a < 0.0) {
+                            continue;
+                        }
+
+                        // Calculo el rango de temperaturas del camion A despues del intercambio.
+                        double temperatura_min_a = temperatura_b;
+                        double temperatura_max_a = temperatura_b;
+
+                        for (int posicion = 0; posicion < static_cast<int>(productos_a.size()); ++posicion) {
+                            if (posicion != posicion_a) {
+                                const double temperatura = productos[productos_a[posicion]].second;
+
+                                temperatura_min_a = min(temperatura_min_a, temperatura);
+                                temperatura_max_a = max(temperatura_max_a, temperatura);
+                            }
+                        }
+
+                        if (temperatura_max_a - temperatura_min_a > entrada.get_Tmax()) {
+                            continue;
+                        }
+
+                        // Calculo el rango de temperaturas del camion B despues del intercambio.
+                        double temperatura_min_b = temperatura_a;
+                        double temperatura_max_b = temperatura_a;
+
+                        for (int posicion = 0; posicion < static_cast<int>(productos_b.size()); ++posicion) {
+                            if (posicion != posicion_b) {
+                                const double temperatura = productos[productos_b[posicion]].second;
+
+                                temperatura_min_b = min(temperatura_min_b, temperatura);
+                                temperatura_max_b = max(temperatura_max_b, temperatura);
+                            }
+                        }
+
+                        if (temperatura_max_b - temperatura_min_b > entrada.get_Tmax()) {
+                            continue;
+                        }
+
+                        const double objetivo_candidato =
+                            solucion.evaluar_objetivo_intercambio(camion_a, posicion_a,
+                                                                  camion_b, posicion_b);
+
+                        if (objetivo_candidato < mejor_objetivo) {
+                            mejor_objetivo = objetivo_candidato;
+
+                            mejor_camion_a = camion_a;
+                            mejor_posicion_a = posicion_a;
+                            mejor_camion_b = camion_b;
+                            mejor_posicion_b = posicion_b;
+                        }
+                    }
+                }
             }
         }
 
-        solucion = nueva;
-    }
+        if (mejor_camion_a == -1) {
+            break;
+        }
 
-    solucion.funcion_objetivo();
+        solucion.intercambiar_productos(mejor_camion_a, mejor_posicion_a,
+                                        mejor_camion_b, mejor_posicion_b);
+
+        solucion.funcion_objetivo();
+    }
 }
 
 // -----------------------------------------------------------------------------
@@ -314,20 +307,18 @@ void ejecutar_algoritmo(const string& tipo_algoritmo,
     } else {
         throw runtime_error("Tipo de algoritmo desconocido: " + tipo_algoritmo);
     }
+    solucion.funcion_objetivo();
 
     // El operador se aplica despues de generar la solucion, si fue solicitado.
     if (!nombre_operador.empty()) {
-        if (nombre_operador == "O1") {
-            operador_1(entrada, solucion);
-        } else if (nombre_operador == "O2") {
-            operador_2(entrada, solucion);
+        if (nombre_operador == "relocate") {
+            relocate(entrada, solucion);
+        } else if (nombre_operador == "SWAP") {
+            swapop(entrada, solucion);
         } else {
             throw runtime_error("Operador desconocido: " + nombre_operador);
         }
     }
-
-    // Se calcula el objetivo sobre la solucion final, luego del operador si lo hubo.
-    solucion.funcion_objetivo();
 }
 
 // -----------------------------------------------------------------------------
