@@ -1,0 +1,56 @@
+﻿sku,producto_representativo,categoria,grupo_afinidad,peso_referencial_kg,temperatura_representativa_C,probabilidad_muestreo
+AR001,Arroz largo fino 1 kg,Almacén,almacen,1.000,18,0.03235
+AR002,Fideos secos 500 g,Almacén,almacen,0.500,18,0.03529
+AR003,Harina de trigo 1 kg,Almacén,almacen,1.000,18,0.02647
+AR004,Azúcar 1 kg,Almacén,almacen,1.000,18,0.02353
+AR005,Yerba mate 1 kg,Almacén,almacen,1.000,18,0.02941
+AR006,Aceite comestible 900 ml,Almacén,almacen,0.920,18,0.02353
+AR007,Lentejas secas 500 g,Almacén,almacen,0.500,18,0.01471
+AR008,Garbanzos secos 500 g,Almacén,almacen,0.500,18,0.01059
+AR009,Puré de tomate 520 g,Almacén,almacen,0.550,18,0.02059
+AR010,Choclo en conserva 300 g,Almacén,almacen,0.380,18,0.01471
+AR011,Cereales para desayuno 400 g,Desayuno,desayuno,0.450,18,0.01509
+AR012,Café molido 250 g,Desayuno,desayuno,0.280,18,0.01086
+AR013,Galletitas dulces 300 g,Desayuno,desayuno,0.330,18,0.02112
+AR014,Avena arrollada 500 g,Desayuno,desayuno,0.520,18,0.01207
+AR015,Mermelada 454 g,Desayuno,desayuno,0.520,18,0.01086
+AR016,Sal fina 500 g,Almacén,almacen,0.520,18,0.00882
+BE001,Agua mineral 1.5 L,Bebidas,bebidas,1.550,18,0.07074
+BE002,Pack de 6 aguas de 1.5 L,Bebidas,bebidas,9.300,18,0.02426
+BE003,Pack de 6 gaseosas de 2.25 L,Bebidas,bebidas,13.800,18,0.02426
+BE004,Jugo en caja 1 L,Bebidas,bebidas,1.050,18,0.05053
+BE005,Pack de 6 jugos de 1 L,Bebidas,bebidas,6.300,18,0.02021
+LI001,Detergente lavavajillas 750 ml,Limpieza,limpieza,0.800,18,0.01942
+LI002,Lavandina 1 L,Limpieza,limpieza,1.100,18,0.01748
+LI003,Jabón líquido para ropa 3 L,Limpieza,limpieza,3.200,18,0.01165
+LI004,Suavizante para ropa 3 L,Limpieza,limpieza,3.150,18,0.00971
+LI005,Pack de papel higiénico,Hogar,limpieza,1.150,18,0.02427
+LI006,Rollo de cocina pack x3,Hogar,limpieza,0.550,18,0.01748
+MA001,Alimento para perro bolsa 3 kg,Mascotas,mascotas,3.100,18,0.01818
+MA002,Alimento para perro bolsa 8 kg,Mascotas,mascotas,8.200,18,0.01212
+MA003,Alimento para perro bolsa 15 kg,Mascotas,mascotas,15.300,18,0.00758
+MA004,Piedras sanitarias para gato 5 kg,Mascotas,mascotas,5.100,18,0.01212
+FR001,Papa bolsa 2 kg,Frutas y verduras,frescos,2.050,10,0.01748
+FR002,Manzana bolsa 1 kg,Frutas y verduras,frescos,1.050,10,0.01399
+FR003,Banana 1 kg,Frutas y verduras,frescos,1.050,10,0.01399
+FR004,Naranja bolsa 1.5 kg,Frutas y verduras,frescos,1.580,10,0.01259
+FR005,Tomate 1 kg,Frutas y verduras,frescos,1.050,10,0.01399
+FR006,Lechuga unidad,Frutas y verduras,frescos,0.350,10,0.00839
+FR007,Zanahoria bolsa 1 kg,Frutas y verduras,frescos,1.050,10,0.00979
+FR008,Cebolla bolsa 1 kg,Frutas y verduras,frescos,1.050,10,0.00979
+RE001,Leche larga vida refrigerada 1 L,Lácteos,refrigerados,1.040,4,0.02404
+RE002,Yogur individual 190 g,Lácteos,refrigerados,0.200,4,0.02104
+RE003,Pack de 4 yogures 190 g,Lácteos,refrigerados,0.820,4,0.01202
+RE004,Queso cremoso 400 g,Lácteos,refrigerados,0.420,4,0.01322
+RE005,Manteca 200 g,Lácteos,refrigerados,0.220,4,0.01082
+RE006,Jamón cocido feteado 200 g,Fiambres,refrigerados,0.230,4,0.01082
+RE007,Huevos docena,Huevos,refrigerados,0.780,5,0.01082
+RE008,Carne picada envasada 500 g,Carnes,proteinas,0.530,2,0.02500
+RE009,Pollo fresco envasado 1.5 kg,Carnes,proteinas,1.550,2,0.02250
+RE010,Milanesas frescas 1 kg,Carnes,proteinas,1.050,2,0.02250
+RE011,Salchichas refrigeradas 6 unidades,Fiambres,refrigerados,0.300,4,0.00721
+CO001,Verduras congeladas 500 g,Congelados,congelados,0.520,-18,0.01842
+CO002,Pizza congelada,Congelados,congelados,0.620,-18,0.01474
+CO003,Helado pote 1 L,Congelados,congelados,0.780,-18,0.01474
+CO004,Hamburguesas congeladas pack,Congelados,congelados,0.480,-18,0.01326
+CO005,Filet de merluza congelado 500 g,Congelados,congelados,0.520,-18,0.00884
