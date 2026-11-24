@@ -103,80 +103,70 @@ void umbral_similitud(const Entrada& entrada, Solucion& solucion) {
     }
 }
 
-void heuristica_2(const Entrada& entrada, Solucion& solucion) {
-    const auto& productos = entrada.get_productos();
+void aprovechamiento_capacidad(const Entrada& entrada, Solucion& solucion) {
 
-    vector<int> orden(entrada.get_n()); //creamos un vector con los indices de los productos
+    const vector<pair<double, double>> productos = entrada.get_productos();
+
+    vector<int> orden(entrada.get_n()); //Creo un vector con los indices de los productos
     iota(orden.begin(), orden.end(), 0);
 
-    sort(orden.begin(), orden.end(), [&](int a, int b) { //para optimizar los ordenamos de mayor a menor peso
+    sort(orden.begin(), orden.end(), [&](int a, int b) { //Ordeno los productos de mayor a menor peso
         return productos[a].first > productos[b].first;
     });
 
-    const double eps = 1e-9; //para no equivocarnos en comparacion de decimales
+    int primer_producto = orden[0];
+    solucion.agregar_a_camion(0, primer_producto, productos[primer_producto].first); //El primer producto va al primer camion
 
-    //Procesamos los productos
-    for(int i : orden){
+    for (int posicion = 1; posicion < entrada.get_n(); ++posicion) { //Proceso los productos restantes
+
+        int i = orden[posicion];
         double peso = productos[i].first;
         double temperatura = productos[i].second;
 
-        if(peso > entrada.get_capacidad() + eps){
-            throw runtime_error("Producto excede capacidad del camion");
-        }
-
-        int mejor_camion = -1; //todavia no encontramos ningun camion valido
+        int mejor_camion = -1;
         double menor_espacio = numeric_limits<double>::infinity();
         double mayor_similitud = -1.0;
 
-        //Buscamos el mejor camion existente
-        for(int k = 0; k < solucion.get_K(); ++k){
-            double libre = solucion.get_espacio_camiones()[k];
+        for (int k = 0; k < solucion.get_K(); ++k) { //Busco el camion mas conveniente
 
-            //Verificamos capacidad
-            if(libre + eps < peso){
-                continue; //descartamos camiones invalidos
+            const vector<int>& camion = solucion.get_camiones()[k];
+
+            if (solucion.get_espacio_camiones()[k] < peso) { //Si no tiene suficiente espacio no puedo agregar
+                continue;
             }
 
-            const auto& camion = solucion.get_camiones()[k];
+            const pair<double, double> rango = solucion.get_rango_temperaturas()[k];
 
-            //Verificamos temperatura 
-            if(!camion.empty()){
-                auto rango = solucion.get_rango_temperaturas()[k];
+            double nueva_min = min(rango.first, temperatura);
+            double nueva_max = max(rango.second, temperatura);
 
-                double nueva_min = min(rango.first, temperatura);
-                double nueva_max = max(rango.second, temperatura);
-
-                if(nueva_max - nueva_min > entrada.get_Tmax() + eps){
-                    continue;
-                }
+            if (nueva_max - nueva_min > entrada.get_Tmax()) { //Si hay mucha diferencia de temperatura no puedo agregar
+                continue;
             }
 
-            //Calculamos el espacio que queda y la similitud agregada
-            double espacio_despues = libre - peso;
+            double espacio_despues = solucion.get_espacio_camiones()[k] - peso;
             double similitud = 0.0;
 
-            for(int j : camion){
+            for (int j : camion) { //Calculo la similitud con los productos del camion
                 similitud += entrada.get_similitud(i, j);
             }
 
-            //Elegimos al camion que menos espacio le queda, si hay epate elegimos por similitud
-            if (espacio_despues < menor_espacio - eps || (abs(espacio_despues - menor_espacio) <= eps && similitud > mayor_similitud)) {
+            //Elijo el camion que menos espacio deja, si hay empate elijo por similitud.
+            if (espacio_despues < menor_espacio ||
+                (espacio_despues == menor_espacio && similitud > mayor_similitud)) {
+
                 mejor_camion = k;
                 menor_espacio = espacio_despues;
                 mayor_similitud = similitud;
             }
         }
 
-        //Si no entra en ningun camion, abrimos uno nuevo
-        if (mejor_camion == -1) {
-            if (!solucion.get_camiones()[0].empty()) {
-                solucion.agregar_camion();
-            }
+        if (mejor_camion == -1) { //Si no entra en ningun camion, creo uno nuevo
+            solucion.agregar_camion();
 
             mejor_camion = solucion.get_K() - 1;
         }
 
-        //Agregar el producto al camion elegido
         solucion.agregar_a_camion(mejor_camion, i, peso);
     }
 }
@@ -184,7 +174,8 @@ void heuristica_2(const Entrada& entrada, Solucion& solucion) {
 // -----------------------------------------------------------------------------
 // Operadores de busqueda local (reemplazar el cuerpo de cada funcion)
 // -----------------------------------------------------------------------------
-void relocate(const Entrada& entrada, Solucion& solucion) { //relocate reubica un producto de un camion a otro
+void relocate(const Entrada& entrada, Solucion& solucion,
+              const chrono::steady_clock::time_point* limite = nullptr)  { //relocate reubica un producto de un camion a otro
     while (true) {
         const double objetivo_actual = solucion.get_objetivo();
         double mejor_objetivo = objetivo_actual;
@@ -192,6 +183,7 @@ void relocate(const Entrada& entrada, Solucion& solucion) { //relocate reubica u
         int mejor_origen = -1;
         int mejor_posicion = -1;
         int mejor_destino = -1;
+        bool tiempo_agotado = false;
 
         const vector<vector<int>>& camiones = solucion.get_camiones();
         const vector<double>& espacio = solucion.get_espacio_camiones();
@@ -199,15 +191,20 @@ void relocate(const Entrada& entrada, Solucion& solucion) { //relocate reubica u
         const vector<pair<double, double>>& productos = entrada.get_productos();
         const int cantidad_camiones = solucion.get_K();
 
-        for (int origen = 0; origen < cantidad_camiones; ++origen) { //Para cada camion quiero ver
+        for (int origen = 0; origen < cantidad_camiones && !tiempo_agotado; ++origen) { //Para cada camion quiero ver
             const vector<int>& camion_origen = camiones[origen];
 
-            for (int posicion = 0; posicion < camion_origen.size(); ++posicion) { //como afecta mover cada producto
+            for (int posicion = 0; posicion < static_cast<int>(camion_origen.size()) && !tiempo_agotado; ++posicion) { //como afecta mover cada producto
                 const int indice_producto = camion_origen[posicion];
                 const double peso = productos[indice_producto].first;
                 const double temperatura = productos[indice_producto].second;
 
-                for (int destino = 0; destino < cantidad_camiones; ++destino) { //a cada camion disponible
+                for (int destino = 0; destino < cantidad_camiones && !tiempo_agotado; ++destino) { //a cada camion disponible
+                    if (limite != nullptr && chrono::steady_clock::now() >= *limite) {
+                        tiempo_agotado = true;
+                        break;
+                    }
+
                     if (destino == origen) { // No tiene sentido realocar al mismo camion.
                         continue;
                     }
@@ -232,6 +229,10 @@ void relocate(const Entrada& entrada, Solucion& solucion) { //relocate reubica u
                 }
             }
         }
+        if (tiempo_agotado ||
+            (limite != nullptr && chrono::steady_clock::now() >= *limite)) {
+            break;
+        }
 
         if (mejor_origen == -1) { //Si no hay una mejora no hago cambios
             break;
@@ -242,8 +243,12 @@ void relocate(const Entrada& entrada, Solucion& solucion) { //relocate reubica u
     }
 }
 
-void swapop(const Entrada& entrada, Solucion& solucion) { //SWAP intercambia un producto de un camion por otro producto de otro camion
+void swapop(const Entrada& entrada, Solucion& solucion,
+            const chrono::steady_clock::time_point* limite = nullptr) { //SWAP intercambia un producto de un camion por otro producto de otro camion
     while (true) {
+        if (limite != nullptr && chrono::steady_clock::now() >= *limite) {
+            break;
+        }
         const double objetivo_actual = solucion.get_objetivo();
         double mejor_objetivo = objetivo_actual;
 
@@ -251,6 +256,7 @@ void swapop(const Entrada& entrada, Solucion& solucion) { //SWAP intercambia un 
         int mejor_posicion_a = -1;
         int mejor_camion_b = -1;
         int mejor_posicion_b = -1;
+        bool tiempo_agotado = false;
 
         const vector<vector<int>>& camiones = solucion.get_camiones();
         const vector<double>& espacio = solucion.get_espacio_camiones();
@@ -258,18 +264,23 @@ void swapop(const Entrada& entrada, Solucion& solucion) { //SWAP intercambia un 
 
         const int cantidad_camiones = solucion.get_K();
 
-        for (int camion_a = 0; camion_a < cantidad_camiones; ++camion_a) {
+        for (int camion_a = 0; camion_a < cantidad_camiones && !tiempo_agotado; ++camion_a) {
             const vector<int>& productos_a = camiones[camion_a];
 
-            for (int camion_b = camion_a + 1; camion_b < cantidad_camiones; ++camion_b) {
+            for (int camion_b = camion_a + 1; camion_b < cantidad_camiones && !tiempo_agotado; ++camion_b) {
                 const vector<int>& productos_b = camiones[camion_b];
 
-                for (int posicion_a = 0; posicion_a < static_cast<int>(productos_a.size()); ++posicion_a) {
+                for (int posicion_a = 0; posicion_a < static_cast<int>(productos_a.size()) && !tiempo_agotado; ++posicion_a) {
                     const int indice_producto_a = productos_a[posicion_a];
                     const double peso_a = productos[indice_producto_a].first;
                     const double temperatura_a = productos[indice_producto_a].second;
 
-                    for (int posicion_b = 0; posicion_b < static_cast<int>(productos_b.size()); ++posicion_b) {
+                    for (int posicion_b = 0; posicion_b < static_cast<int>(productos_b.size()) && !tiempo_agotado; ++posicion_b) {
+                        if (limite != nullptr && chrono::steady_clock::now() >= *limite) {
+                            tiempo_agotado = true;
+                            break;
+                        }
+
                         const int indice_producto_b = productos_b[posicion_b];
                         const double peso_b = productos[indice_producto_b].first;
                         const double temperatura_b = productos[indice_producto_b].second;
@@ -331,6 +342,11 @@ void swapop(const Entrada& entrada, Solucion& solucion) { //SWAP intercambia un 
             }
         }
 
+        if (tiempo_agotado ||
+            (limite != nullptr && chrono::steady_clock::now() >= *limite)) {
+            break;
+        }
+
         if (mejor_camion_a == -1) {
             break;
         }
@@ -345,11 +361,10 @@ void swapop(const Entrada& entrada, Solucion& solucion) { //SWAP intercambia un 
 // -----------------------------------------------------------------------------
 // Metaheuristica (reemplazar el cuerpo de la funcion)
 // -----------------------------------------------------------------------------
-void metaheuristica_1(const Entrada& entrada, Solucion& solucion) {
+void ILS(const Entrada& entrada, Solucion& solucion) {
     const double limite_segundos = 10.0;   // tiempo maximo de la metaheuristica
     const int max_iteraciones = 100000;
 
-    const auto inicio = chrono::steady_clock::now();
     mt19937 rng(12345);
 
     const vector<pair<double, double>>& productos = entrada.get_productos();
@@ -371,20 +386,33 @@ void metaheuristica_1(const Entrada& entrada, Solucion& solucion) {
     };
 
     // Busqueda local: repite relocate y swap hasta que ninguno mejore.
-    auto busqueda_local = [&](Solucion& s) {
+    auto busqueda_local = [&](Solucion& s, const chrono::steady_clock::time_point& limite) {
         double antes;
+
         do {
+            if (chrono::steady_clock::now() >= limite) {
+                break;
+            }
+
             antes = s.get_objetivo();
-            relocate(entrada, s);
-            swapop(entrada, s);
-        } while (s.get_objetivo() < antes - 1e-9);
+
+            relocate(entrada, s, &limite);
+
+            if (chrono::steady_clock::now() >= limite) {
+                break;
+            }
+
+            swapop(entrada, s, &limite);
+
+        } while (s.get_objetivo() < antes);
     };
 
     // Perturbacion: movimientos aleatorios que SI respetan capacidad y temperatura.
-    auto perturbar = [&](Solucion& s, int movimientos) {
+    auto perturbar = [&](Solucion& s, int movimientos,
+                     const chrono::steady_clock::time_point& limite) {
         int hechos = 0;
         int intentos = 0;
-        while (hechos < movimientos && intentos < movimientos * 50) {
+        while (hechos < movimientos && intentos < movimientos * 50 && chrono::steady_clock::now() < limite) {
             ++intentos;
             const int K = s.get_K();
             if (K < 2) {
@@ -434,29 +462,47 @@ void metaheuristica_1(const Entrada& entrada, Solucion& solucion) {
         s.funcion_objetivo();
     };
 
-    // 1) Solucion inicial (despues se puede cambiar por heuristica_2)
-    umbral_similitud(entrada, solucion);
-    solucion.funcion_objetivo();
+        // 1) Solucion inicial
+        umbral_similitud(entrada, solucion);
+        solucion.funcion_objetivo();
 
-    // 2) Primera busqueda local
-    busqueda_local(solucion);
+        // 2) Inicio del limite temporal de la busqueda local y la metaheuristica.
+        const auto inicio = chrono::steady_clock::now();
+        const auto limite = inicio + chrono::duration_cast<chrono::steady_clock::duration>(
+            chrono::duration<double>(limite_segundos)
+        );
 
-    // 3) Iterated Local Search: perturbar, mejorar, y quedarme con la nueva solo si no empeora
-    Solucion actual = solucion;
-    const int fuerza = max(2, entrada.get_n() / 100);
+        // 3) Primera busqueda local
+        busqueda_local(solucion, limite);
 
-    for (int it = 0; it < max_iteraciones; ++it) {
-        const double transcurrido =
-            chrono::duration<double>(chrono::steady_clock::now() - inicio).count();
-        if (transcurrido >= limite_segundos) {
+        // 4) Solucion actual y fuerza de perturbacion
+        Solucion actual = solucion;
+        const int fuerza = max(2, entrada.get_n() / 100);
+
+        // Si solo queda un camion, no existen movimientos posibles entre camiones.
+        if (actual.get_K() < 2 || chrono::steady_clock::now() >= limite) {
+            solucion = actual;
+            return;
+        }
+
+        for (int it = 0; it < max_iteraciones; ++it) {
+
+        if (chrono::steady_clock::now() >= limite || actual.get_K() < 2) {
             break;
         }
 
         Solucion candidata = actual;
-        perturbar(candidata, fuerza);
-        busqueda_local(candidata);
 
-        if (candidata.get_objetivo() <= actual.get_objetivo() + 1e-9) {
+        perturbar(candidata, fuerza, limite);
+
+        if (chrono::steady_clock::now() >= limite) {
+            break;
+        }
+
+        busqueda_local(candidata, limite);
+
+        // Acepto la nueva solucion solamente si no empeora el objetivo.
+        if (candidata.get_objetivo() <= actual.get_objetivo()) {
             actual = candidata;
         }
     }
@@ -474,17 +520,17 @@ void ejecutar_algoritmo(const string& tipo_algoritmo,
                         Solucion& solucion) {
 
     if (tipo_algoritmo == "heuristica") {
-        if (nombre_algoritmo == "US") {
+        if (nombre_algoritmo == "UMBS") {
             umbral_similitud(entrada, solucion);
-        } else if (nombre_algoritmo == "H2") {
-            heuristica_2(entrada, solucion);
+        } else if (nombre_algoritmo == "APC") {
+            aprovechamiento_capacidad(entrada, solucion);
         } else {
             throw runtime_error("Heuristica desconocida: " + nombre_algoritmo);
         }
 
     } else if (tipo_algoritmo == "metaheuristica") {
-        if (nombre_algoritmo == "M1") {
-            metaheuristica_1(entrada, solucion);
+        if (nombre_algoritmo == "ILS") {
+            ILS(entrada, solucion);
         } else {
             throw runtime_error("Metaheuristica desconocida: " + nombre_algoritmo);
         }

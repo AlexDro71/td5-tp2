@@ -9,6 +9,7 @@ Solucion::Solucion(const Entrada& e)
       _k(1),
       _entrada(&e),
       _suma_similitudes(0.0),
+      _objetivo(0.0),
       _espacio_camiones(1, e.get_capacidad()),
       _rango_temperaturas(1, make_pair(0.0, 0.0)) {}
 
@@ -141,8 +142,18 @@ void Solucion::intercambiar_productos(int camion_a, int posicion_a, int camion_b
 
 double Solucion::calcular_objetivo_con_componentes(int cantidad_camiones, double suma_similitudes) const {
     const double alfa = 1.0;
-    const double beta = 1.0;
-    return alfa * static_cast<double>(cantidad_camiones) - beta * suma_similitudes;
+    const double beta = 0.5;
+
+    const double n = static_cast<double>(_entrada->get_n());
+    const double cantidad_pares = n * (n - 1.0) / 2.0;
+
+    double similitud_normalizada = 0.0;
+
+    if (cantidad_pares > 0.0) {
+        similitud_normalizada = suma_similitudes / cantidad_pares;
+    }
+
+    return alfa * cantidad_camiones - beta * similitud_normalizada;
 }
 
 void Solucion::funcion_objetivo() {

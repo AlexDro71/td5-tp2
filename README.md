@@ -1,11 +1,23 @@
 compilar: g++ -std=c++17 -Wall -Wextra -pedantic -O2 main.cpp Entrada.cpp Solucion.cpp -o programa.exe
 
-en programa se puede poner cualquier cosa
+en programa se puede poner el nombre que uno desee.
 
-ejecutar alguna heuristica con input "in" con salida en output "out": .\programa.exe input/in.txt output/out.txt --Heuristica nombre_heuristica --T max_dif_temp
+Las siguientes son todas las opciones de ejecucion, para cada una es necesario definir el valor T_max
+UMBS: .\programa.exe inputs/ejemplo.txt outputs/umbs.txt --Heuristica UMBS --T T_max
 
-ejecutar con heuristica y operador: .\programa.exe input/in.txt output/out.txt --Heuristica nombre_heuristica --Operador nombre_operador --T max_dif_temp
+UMBS + RELOCATE: .\programa.exe inputs/ejemplo.txt outputs/umbs_relocate.txt --Heuristica UMBS --Operador RELOCATE --T T_max
 
-ejecutar metaheuristica: .\programa.exe input/in.txt output/out.txt --Metaheuristica nombre_metaheuristica --T max_dif_tempt
+UMBS + SWAP: .\programa.exe inputs/ejemplo.txt outputs/umbs_swap.txt --Heuristica UMBS --Operador SWAP --T T_max
 
-Cualquiera de los terminos de la ejecucion pueden ser puestos en culquier orden siempre que resptene su sufijo(como input/ o --Operador)
+APC: .\programa.exe inputs/ejemplo.txt outputs/apc.txt --Heuristica APC --T T_max
+
+APC + RELOCATE: .\programa.exe inputs/ejemplo.txt outputs/apc_relocate.txt --Heuristica APC --Operador RELOCATE --T T_max
+
+APC + SWAP: .\programa.exe inputs/ejemplo.txt outputs/apc_swap.txt --Heuristica APC --Operador SWAP --T T_max
+
+ILS: .\programa.exe inputs/ejemplo.txt outputs/ils.txt --Metaheuristica ILS --T T_max
+
+ILS + RELOCATE: .\programa.exe inputs/ejemplo.txt outputs/ils_relocate.txt --Metaheuristica ILS --Operador RELOCATE --T T_max
+
+ILS + SWAP: .\programa.exe inputs/ejemplo.txt outputs/ils_swap.txt --Metaheuristica ILS --Operador SWAP --T T_max
+
